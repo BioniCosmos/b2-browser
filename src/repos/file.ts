@@ -1,7 +1,7 @@
 import { PrismaD1 } from '@prisma/adapter-d1'
 import { PrismaClient, type Prisma, type File as RawFile } from '@prisma/client'
 import { ITXClientDenyList } from '@prisma/client/runtime/library'
-import type { File } from '../schemas/file'
+import type { File } from '../types/file'
 
 export class FileRepo {
   private client: PrismaClient
