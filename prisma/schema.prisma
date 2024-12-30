@@ -1,0 +1,22 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model File {
+  id           Int     @id @default(autoincrement())
+  type         String
+  name         String
+  path         String  @unique
+  parent       File?   @relation("ParentChildren", fields: [parentId], references: [id])
+  parentId     Int?
+  children     File[]  @relation("ParentChildren")
+  size         BigInt?
+  contentType  String?
+  lastModified BigInt?
+}
