@@ -2,6 +2,7 @@ import { PrismaD1 } from '@prisma/adapter-d1'
 import { PrismaClient, type Prisma, type File as RawFile } from '@prisma/client'
 import { ITXClientDenyList } from '@prisma/client/runtime/library'
 import type { File } from '../types/file'
+import { getParentPath } from '../utils'
 
 export class FileRepo {
   private client: PrismaClient
@@ -18,7 +19,7 @@ export class FileRepo {
     return rawFile ? toFile(rawFile) : null
   }
 
-  async create(file: File) {
+  async create(file: Omit<File, 'children'>) {
     if (await this.query(file.path)) {
       return
     }
@@ -58,10 +59,6 @@ export class FileRepo {
   }
 }
 
-function getParentPath(path: string) {
-  return path.split('/').slice(0, -1).join('/') || '/'
-}
-
 function getParentName(path: string) {
   return path.split('/').at(-2) || '/'
 }
@@ -75,14 +72,11 @@ function toFile({
   lastModified,
   ...rest
 }: RawFile | RawParentFile): File {
-  const children = 'children' in rest ? rest.children : []
   return {
     type: type as File['type'],
     name,
     path,
-    children: Object.fromEntries(
-      children.map((child) => [child.path, toFile(child)]),
-    ),
+    children: 'children' in rest ? rest.children.map(toFile) : undefined,
     size: Number(size) ?? undefined,
     contentType: contentType ?? undefined,
     lastModified: Number(lastModified) ?? undefined,
