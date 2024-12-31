@@ -6,8 +6,6 @@ export interface FileBrowserProps {
 }
 
 export default function FileBrowser({ file }: FileBrowserProps) {
-  const getCurrentPath = (pathParts: string[], i: number) =>
-    pathParts.slice(0, i + 1).join('/')
   const breadcrumbs = file.path
     .split('/')
     .filter(Boolean)
@@ -15,12 +13,8 @@ export default function FileBrowser({ file }: FileBrowserProps) {
       <span> / </span>,
       <a href={getCurrentPath(pathParts, i)}>{part}</a>,
     ])
-
-  const directories = file
-    .children!.filter(({ type }) => type === 'directory')
-    .toSorted()
-  const files = file.children!.filter(({ type }) => type === 'file').toSorted()
-
+  const filterFileType = (fileType: File['type']) =>
+    file.children!.filter(({ type }) => type === fileType).toSorted()
   return (
     <div class="file-browser">
       <div class="breadcrumb">
@@ -45,7 +39,7 @@ export default function FileBrowser({ file }: FileBrowserProps) {
               <td>-</td>
             </tr>
           )}
-          {directories.map(({ name, path }) => (
+          {filterFileType('directory').map(({ name, path }) => (
             <tr key={name}>
               <td>
                 <a href={path}>📁 {name}</a>
@@ -54,7 +48,7 @@ export default function FileBrowser({ file }: FileBrowserProps) {
               <td>-</td>
             </tr>
           ))}
-          {files.map(({ name, path, size, lastModified }) => (
+          {filterFileType('file').map(({ name, path, size, lastModified }) => (
             <tr key={name}>
               <td>
                 <a href={path}>📄 {name}</a>
@@ -67,6 +61,10 @@ export default function FileBrowser({ file }: FileBrowserProps) {
       </table>
     </div>
   )
+}
+
+function getCurrentPath(pathParts: string[], i: number) {
+  return `/${pathParts.slice(0, i + 1).join('/')}`
 }
 
 function formatSize(size: number) {

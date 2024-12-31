@@ -8,10 +8,13 @@ export async function direct(env: Env, path: string) {
   }
   return file.type === 'directory'
     ? file
-    : env.DOWNLOAD_BASE_URL +
-        file.path.split('/').map(encodeURIComponent).join('/')
+    : env.DOWNLOAD_BASE_URL + encodePath(file.path)
 }
 
 function trimEndSlash(path: string) {
   return path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path
+}
+
+function encodePath(path: string) {
+  return path.split('/').map(encodeURIComponent).join('/')
 }
