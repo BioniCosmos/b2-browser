@@ -21,7 +21,7 @@ app.get(
         <title>B2 Browser</title>
         <link rel="stylesheet" href="/styles.css" />
       </head>
-      <body>{children}</body>
+      <body class="bg-gray-100 p-5">{children}</body>
     </html>
   )),
 )

@@ -1,3 +1,4 @@
+import { Child } from 'hono/jsx'
 import type { File } from '../types/file'
 import { getParentPath } from '../utils'
 
@@ -11,56 +12,90 @@ export default function FileBrowser({ file }: FileBrowserProps) {
     .filter(Boolean)
     .flatMap((part, i, pathParts) => [
       <span> / </span>,
-      <a href={getCurrentPath(pathParts, i)}>{part}</a>,
+      <BreadcrumbItem name={part} path={getCurrentPath(pathParts, i)} />,
     ])
   const filterFileType = (fileType: File['type']) =>
     file.children!.filter(({ type }) => type === fileType).toSorted()
   return (
-    <div class="file-browser">
-      <div class="breadcrumb">
-        <a href="/">root</a>
+    <div class="bg-white rounded-lg shadow-md p-5 max-w-7xl mx-auto">
+      <div class="mb-5 p-3 bg-gray-50 rounded font-bold text-2xl">
+        <BreadcrumbItem name="root" path="/" />
         {breadcrumbs}
       </div>
-      <table class="file-list">
+      <table class="w-full border-collapse">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Size</th>
-            <th>Last Modified</th>
+            <TableHeaderCell>Name</TableHeaderCell>
+            <TableHeaderCell>Size</TableHeaderCell>
+            <TableHeaderCell>Last Modified</TableHeaderCell>
           </tr>
         </thead>
         <tbody>
           {file.path !== '/' && (
-            <tr>
-              <td>
-                <a href={getParentPath(file.path)}>../ (Parent Directory)</a>
-              </td>
-              <td>-</td>
-              <td>-</td>
-            </tr>
+            <TableRow>
+              <FileNameCell
+                name="../ (Parent Directory)"
+                path={getParentPath(file.path)}
+              />
+              <TableCell>-</TableCell>
+              <TableCell>-</TableCell>
+            </TableRow>
           )}
           {filterFileType('directory').map(({ name, path }) => (
-            <tr key={name}>
-              <td>
-                <a href={path}>📁 {name}</a>
-              </td>
-              <td>-</td>
-              <td>-</td>
-            </tr>
+            <TableRow key={path}>
+              <FileNameCell name={`📁  ${name}`} path={path} />
+              <TableCell>-</TableCell>
+              <TableCell>-</TableCell>
+            </TableRow>
           ))}
           {filterFileType('file').map(({ name, path, size, lastModified }) => (
-            <tr key={name}>
-              <td>
-                <a href={path}>📄 {name}</a>
-              </td>
-              <td>{formatSize(size!)}</td>
-              <td>{formatDate(lastModified!)}</td>
-            </tr>
+            <TableRow key={path}>
+              <FileNameCell name={`📄  ${name}`} path={path} />
+              <TableCell>{formatSize(size!)}</TableCell>
+              <TableCell>{formatDate(lastModified!)}</TableCell>
+            </TableRow>
           ))}
         </tbody>
       </table>
     </div>
   )
+}
+
+function BreadcrumbItem({ name, path }: { name: string; path: string }) {
+  return (
+    <a href={path} class="hover:underline">
+      {name}
+    </a>
+  )
+}
+
+function TableHeaderCell({ children }: { children: Child }) {
+  return (
+    <th class="p-3 text-left bg-gray-50 font-semibold text-gray-600">
+      {children}
+    </th>
+  )
+}
+
+function TableRow({ children, key }: { children: Child; key?: string }) {
+  return (
+    <tr class="hover:bg-gray-50" key={key}>
+      {children}
+    </tr>
+  )
+}
+function FileNameCell({ name, path }: { name: string; path: string }) {
+  return (
+    <TableCell>
+      <a href={path} class="text-blue-600 hover:underline block">
+        {name}
+      </a>
+    </TableCell>
+  )
+}
+
+function TableCell({ children }: { children: Child }) {
+  return <td class="p-3 border-b border-gray-100">{children}</td>
 }
 
 function getCurrentPath(pathParts: string[], i: number) {

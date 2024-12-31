@@ -2,7 +2,8 @@
   "name": "b2-browser",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "concurrently \"tailwindcss -i ./src/styles.css -o ./public/styles.css --watch\" \"wrangler dev --live-reload\"",
+    "build": "tailwindcss -i ./src/styles.css -o ./public/styles.css --minify",
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {
@@ -13,7 +14,9 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241224.0",
+    "concurrently": "^9.1.2",
     "prisma": "^6.1.0",
+    "tailwindcss": "^3.4.17",
     "wrangler": "^3.99.0"
   }
 }
