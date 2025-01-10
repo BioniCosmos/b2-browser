@@ -5,5 +5,8 @@ interface Env {
 	B2_APP_KEY: string;
 	B2_BUCKET_ID: string;
 	DOWNLOAD_BASE_URL: string;
+	JWT_SECRET: string;
+	USERNAME: string;
+	PASSWORD: string;
 	DB: D1Database;
 }
