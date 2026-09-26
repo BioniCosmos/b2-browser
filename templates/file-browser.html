@@ -1,0 +1,72 @@
+<div class="bg-white rounded-lg shadow-md p-5 max-w-7xl mx-auto">
+  <div class="mb-5 p-3 bg-gray-50 rounded font-bold text-2xl">
+    {% for item in Self::breadcrumbs(path) %}
+      <a href="{{ item.path }}" class="hover:underline">{{ item.name }}</a>
+    {% endfor %}
+  </div>
+  <table class="w-full border-collapse">
+    <thead>
+      <tr>
+        <th class="p-3 text-left bg-gray-50 font-semibold text-gray-600">
+          Name
+        </th>
+        <th class="p-3 text-left bg-gray-50 font-semibold text-gray-600">
+          Size
+        </th>
+        <th class="p-3 text-left bg-gray-50 font-semibold text-gray-600">
+          Last Modified
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if path != "/" %}
+        <tr class="hover:bg-gray-50">
+          <td class="p-3 border-b border-gray-100">
+            <a
+              href="{{ utils::dir(path) }}"
+              class="text-blue-600 hover:underline block"
+            >
+              ../ (Parent Directory)
+            </a>
+          </td>
+          <td class="p-3 border-b border-gray-100">-</td>
+          <td class="p-3 border-b border-gray-100">-</td>
+        </tr>
+      {% endif %}
+      {% for file in directories %}
+        <tr class="hover:bg-gray-50">
+          <td class="p-3 border-b border-gray-100">
+            <a href="{{ file.path }}" class="text-blue-600 hover:underline block">
+              📁 {{ file.name }}
+            </a>
+          </td>
+          <td class="p-3 border-b border-gray-100">-</td>
+          <td class="p-3 border-b border-gray-100">-</td>
+        </tr>
+      {% endfor %}
+      {% for file in files %}
+        <tr class="hover:bg-gray-50">
+          <td class="p-3 border-b border-gray-100">
+            <a href="{{ file.path }}" class="text-blue-600 hover:underline block">
+              📄 {{ file.name }}
+            </a>
+          </td>
+          <td class="p-3 border-b border-gray-100">
+            {{ Self::format_size(*file.size) }}
+          </td>
+          <td class="p-3 border-b border-gray-100 date">
+            {{ file.last_modified }}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<script type="module">
+  document.querySelectorAll('.date').forEach((x) => {
+    x.textContent = new Temporal.ZonedDateTime(
+      BigInt(x.textContent) * 1000000n,
+      Temporal.Now.timeZoneId(),
+    ).toLocaleString()
+  })
+</script>

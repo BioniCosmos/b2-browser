@@ -3,6 +3,9 @@ use std::collections::VecDeque;
 use anyhow::{Result, ensure};
 use sqlx::{PgPool, query_as};
 
+use crate::utils;
+
+#[derive(Clone)]
 pub struct EntryRepo {
     db: PgPool,
 }
@@ -17,30 +20,30 @@ struct RawFile {
 #[derive(Debug)]
 pub enum Entry {
     File(File),
-    Directory(Dir),
+    Dir(Dir),
 }
 
 #[derive(Debug)]
 pub struct File {
-    name: String,
-    path: String,
-    size: i64,
-    content_type: String,
-    last_modified: i64,
+    pub name: String,
+    pub path: String,
+    pub size: i64,
+    pub content_type: String,
+    pub last_modified: i64,
 }
 
 #[derive(Debug)]
 pub struct Dir {
-    name: String,
-    path: String,
-    children: Vec<Entry>,
+    pub name: String,
+    pub path: String,
+    pub children: Vec<Entry>,
 }
 
 impl Entry {
     fn path(&self) -> &str {
         match self {
             Entry::File(File { path, .. }) => path,
-            Entry::Directory(Dir { path, .. }) => path,
+            Entry::Dir(Dir { path, .. }) => path,
         }
     }
 }
@@ -55,7 +58,11 @@ impl EntryRepo {
 
         let mut raw_files: Vec<RawFile> = query_as!(
             RawFile,
-            "SELECT * FROM files WHERE path = $1 OR path LIKE $1 || '/%' ORDER BY path",
+            "
+            SELECT * FROM files
+            WHERE CASE WHEN $1 != '/' THEN path = $1 OR path LIKE $1 || '/%' ELSE TRUE END
+            ORDER BY path
+            ",
             path
         )
         .fetch_all(&self.db)
@@ -113,17 +120,13 @@ impl EntryRepo {
 
         impl Frame {
             fn to_dir_entry(self) -> Entry {
-                fn dir(path: &str) -> String {
-                    let dir = &path[..path.rfind('/').unwrap()];
-                    if dir.is_empty() { "/" } else { dir }.to_owned()
-                }
-                Entry::Directory(Dir {
+                Entry::Dir(Dir {
                     name: if let Segment::Normal(segment) = self.segment {
                         segment
                     } else {
                         "/".to_owned()
                     },
-                    path: dir(self.children[0].path()),
+                    path: utils::dir(self.children[0].path()),
                     children: self.children,
                 })
             }
