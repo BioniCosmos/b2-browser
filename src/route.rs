@@ -2,11 +2,11 @@ use askama::{DynTemplate, Template};
 use axum::{
     Router,
     extract::{Request, State},
+    http::header::CONTENT_TYPE,
     response::{Html, IntoResponse, Response},
     routing,
 };
 use tower_http::trace::TraceLayer;
-use tracing::debug;
 
 use crate::{
     repo::{Dir, Entry, EntryRepo, File},
@@ -85,8 +85,17 @@ impl FileBrowser {
 }
 
 async fn index(State(AppState { entry_repo }): State<AppState>, req: Request) -> Response {
-    debug!(path = req.uri().path());
-    match entry_repo.query(req.uri().path()).await.unwrap() {
+    let path = req.uri().path();
+
+    if path == "/styles.css" {
+        return (
+            [(CONTENT_TYPE, "text/css")],
+            include_str!(concat!(env!("OUT_DIR"), "/styles.css")),
+        )
+            .into_response();
+    }
+
+    match entry_repo.query(path).await.unwrap() {
         Entry::Dir(Dir {
             name: _,
             path,
