@@ -95,7 +95,11 @@ async fn index(State(AppState { entry_repo }): State<AppState>, req: Request) ->
             .into_response();
     }
 
-    match entry_repo.query(path).await.unwrap() {
+    match entry_repo
+        .query(&urlencoding::decode(path).unwrap())
+        .await
+        .unwrap()
+    {
         Entry::Dir(Dir {
             name: _,
             path,
