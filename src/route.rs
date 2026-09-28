@@ -89,7 +89,7 @@ impl FileBrowser {
             unit_index += 1;
         }
 
-        return format!("{size:.1} {}", units[unit_index]);
+        format!("{size:.1} {}", units[unit_index])
     }
 }
 

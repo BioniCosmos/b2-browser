@@ -65,7 +65,7 @@ impl EntryRepo {
         )
         .fetch_all(&self.db)
         .await?;
-        ensure!(raw_files.len() != 0, "not found");
+        ensure!(!raw_files.is_empty(), "not found");
 
         fn raw_to_entry(
             RawFile {
@@ -115,7 +115,7 @@ impl EntryRepo {
         }
 
         impl Frame {
-            fn to_dir_entry(self) -> Entry {
+            fn into_dir_entry(self) -> Entry {
                 Entry::Dir(Dir {
                     name: if let Segment::Normal(segment) = self.segment {
                         segment
@@ -146,7 +146,11 @@ impl EntryRepo {
             if common_prefix_len < stack.len() {
                 for _ in 0..stack.len() - common_prefix_len {
                     let top = stack.pop().unwrap();
-                    stack.last_mut().unwrap().children.push(top.to_dir_entry());
+                    stack
+                        .last_mut()
+                        .unwrap()
+                        .children
+                        .push(top.into_dir_entry());
                 }
             }
 
@@ -170,10 +174,14 @@ impl EntryRepo {
         };
         while stack.len() > level {
             let top = stack.pop().unwrap();
-            stack.last_mut().unwrap().children.push(top.to_dir_entry());
+            stack
+                .last_mut()
+                .unwrap()
+                .children
+                .push(top.into_dir_entry());
         }
 
-        Ok(stack.pop().unwrap().to_dir_entry())
+        Ok(stack.pop().unwrap().into_dir_entry())
     }
 
     pub async fn push_tmp(
