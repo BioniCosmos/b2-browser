@@ -1,9 +1,11 @@
+use std::env;
+
 use askama::{DynTemplate, Template};
 use axum::{
     Router,
     extract::{Request, State},
     http::header::CONTENT_TYPE,
-    response::{Html, IntoResponse, Response},
+    response::{Html, IntoResponse, Redirect, Response},
     routing,
 };
 use tower_http::trace::TraceLayer;
@@ -128,6 +130,15 @@ async fn index(State(AppState { entry_repo }): State<AppState>, req: Request) ->
             )
             .into_response()
         }
-        Entry::File(file) => todo!(),
+        Entry::File(file) => {
+            let base_url = env::var("FILE_BASE_URL").unwrap();
+            let path = file
+                .path
+                .trim_start_matches('/')
+                .split('/')
+                .map(urlencoding::encode)
+                .fold(String::new(), |acc, x| acc + "/" + &x);
+            Redirect::to(&(base_url + &path)).into_response()
+        }
     }
 }
