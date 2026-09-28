@@ -48,10 +48,7 @@ struct Breadcrumb {
 
 impl FileBrowser {
     fn breadcrumbs(path: &str) -> Vec<Breadcrumb> {
-        let mut xs = vec![Breadcrumb {
-            name: "root".to_owned(),
-            path: "/".to_owned(),
-        }];
+        let mut xs = vec![];
 
         let path = path.as_bytes();
         let mut i = 1;

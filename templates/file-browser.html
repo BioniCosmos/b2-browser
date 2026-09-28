@@ -1,6 +1,8 @@
 <div class="bg-white rounded-lg shadow-md p-5 max-w-7xl mx-auto">
   <div class="mb-5 p-3 bg-gray-50 rounded font-bold text-2xl">
+    <a href="/" class="hover:underline">root</a>
     {% for item in Self::breadcrumbs(path) %}
+      <span> / </span>
       <a href="{{ item.path }}" class="hover:underline">{{ item.name }}</a>
     {% endfor %}
   </div>
