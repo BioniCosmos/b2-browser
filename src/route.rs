@@ -3,25 +3,35 @@ use std::env;
 use askama::{DynTemplate, Template};
 use axum::{
     Router,
-    extract::{Request, State},
-    http::header::CONTENT_TYPE,
+    extract::{FromRef, Request, State},
+    http::{StatusCode, header::CONTENT_TYPE},
     response::{Html, IntoResponse, Redirect, Response},
     routing,
 };
 use tower_http::trace::TraceLayer;
+use tracing::error;
 
 use crate::{
     repo::{Dir, Entry, EntryRepo, File},
+    service::Svc,
     utils,
 };
 
-#[derive(Clone)]
+#[derive(Clone, FromRef)]
 pub struct AppState {
-    pub entry_repo: EntryRepo,
+    entry_repo: EntryRepo,
+    svc: Svc,
+}
+
+impl AppState {
+    pub fn new(entry_repo: EntryRepo, svc: Svc) -> Self {
+        Self { entry_repo, svc }
+    }
 }
 
 pub fn init(state: AppState) -> Router {
     Router::new()
+        .route("/api/import", routing::post(import))
         .fallback(routing::get(index))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -83,7 +93,7 @@ impl FileBrowser {
     }
 }
 
-async fn index(State(AppState { entry_repo }): State<AppState>, req: Request) -> Response {
+async fn index(State(entry_repo): State<EntryRepo>, req: Request) -> Response {
     let path = req.uri().path();
 
     if path == "/styles.css" {
@@ -137,5 +147,27 @@ async fn index(State(AppState { entry_repo }): State<AppState>, req: Request) ->
                 .fold(String::new(), |acc, x| acc + "/" + &x);
             Redirect::to(&(base_url + &path)).into_response()
         }
+    }
+}
+
+async fn import(State(svc): State<Svc>) -> impl IntoResponse {
+    svc.import()
+        .await
+        .and(Ok(StatusCode::NO_CONTENT))
+        .map_err(Error::new)
+}
+
+struct Error(anyhow::Error);
+
+impl Error {
+    fn new(e: anyhow::Error) -> Self {
+        Self(e)
+    }
+}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        error!("unexpected error: {:?}", self.0);
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }

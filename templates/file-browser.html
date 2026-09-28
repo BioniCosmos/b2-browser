@@ -1,10 +1,20 @@
 <div class="bg-white rounded-lg shadow-md p-5 max-w-7xl mx-auto">
-  <div class="mb-5 p-3 bg-gray-50 rounded font-bold text-2xl">
-    <a href="/" class="hover:underline">root</a>
-    {% for item in Self::breadcrumbs(path) %}
-      <span> / </span>
-      <a href="{{ item.path }}" class="hover:underline">{{ item.name }}</a>
-    {% endfor %}
+  <div class="flex justify-between items-center gap-4 mb-5">
+    <div
+      class="grow p-2 bg-gray-50 border border-gray-100 rounded-lg font-bold text-xl text-gray-800"
+    >
+      <a href="/" class="hover:text-blue-600">root</a>
+      {% for item in Self::breadcrumbs(path) %}
+        <span class="text-gray-400 font-normal"> / </span>
+        <a href="{{ item.path }}" class="hover:text-blue-600">{{ item.name }}</a>
+      {% endfor %}
+    </div>
+    <button
+      id="importButton"
+      class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition disabled:opacity-50 disabled:pointer-events-none"
+    >
+      Import
+    </button>
   </div>
   <table class="w-full border-collapse">
     <thead>
@@ -70,5 +80,29 @@
       BigInt(x.textContent) * 1000000n,
       Temporal.Now.timeZoneId(),
     ).toLocaleString()
+  })
+
+  importButton.addEventListener('click', async () => {
+    if (sessionStorage.getItem('importing') === 'true') {
+      alert('Importing…')
+      return
+    }
+
+    importButton.disabled = true
+    sessionStorage.setItem('importing', 'true')
+    try {
+      const res = await fetch('/api/import', { method: 'POST' })
+      if (res.ok) {
+        alert('Import successful')
+      } else {
+        alert('Import failed')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Import failed')
+    } finally {
+      sessionStorage.removeItem('importing')
+      importButton.disabled = false
+    }
   })
 </script>
