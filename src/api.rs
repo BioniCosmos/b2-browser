@@ -51,7 +51,7 @@ impl B2API {
         bucket_id: &str,
         start_file_name: &str,
     ) -> Result<ListFileNamesResponse> {
-        let mut query = HashMap::from([("bucketId", bucket_id)]);
+        let mut query = HashMap::from([("bucketId", bucket_id), ("maxFileCount", "10000")]);
         if !start_file_name.is_empty() {
             query.insert("startFileName", start_file_name);
         }
@@ -103,16 +103,16 @@ pub struct StorageAPI {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListFileNamesResponse {
-    files: Vec<File>,
-    next_file_name: String,
+    pub files: Vec<File>,
+    pub next_file_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct File {
-    action: String,
-    content_length: u64,
-    content_type: String,
-    file_name: String,
-    upload_timestamp: u64,
+    pub action: String,
+    pub content_length: i64,
+    pub content_type: String,
+    pub file_name: String,
+    pub upload_timestamp: i64,
 }

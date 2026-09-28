@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use anyhow::{Result, ensure};
-use sqlx::{PgPool, query_as};
+use anyhow::{Error, Result, ensure};
+use sqlx::{PgPool, Postgres, Transaction, query, query_as};
 
 use crate::utils;
 
@@ -10,10 +10,9 @@ pub struct EntryRepo {
     db: PgPool,
 }
 
-struct RawFile {
+pub struct RawFile {
     path: String,
     size: i64,
-    content_type: String,
     last_modified: i64,
 }
 
@@ -28,7 +27,6 @@ pub struct File {
     pub name: String,
     pub path: String,
     pub size: i64,
-    pub content_type: String,
     pub last_modified: i64,
 }
 
@@ -59,11 +57,11 @@ impl EntryRepo {
         let mut raw_files: Vec<RawFile> = query_as!(
             RawFile,
             "
-            SELECT * FROM files
+            SELECT path, size, last_modified FROM files
             WHERE CASE WHEN $1 != '/' THEN path = $1 OR path LIKE $1 || '/%' ELSE TRUE END
             ORDER BY path
             ",
-            path
+            path,
         )
         .fetch_all(&self.db)
         .await?;
@@ -73,7 +71,6 @@ impl EntryRepo {
             RawFile {
                 path,
                 size,
-                content_type,
                 last_modified,
             }: RawFile,
         ) -> Entry {
@@ -84,7 +81,6 @@ impl EntryRepo {
                 name: name(&path),
                 path,
                 size,
-                content_type,
                 last_modified,
             })
         }
@@ -178,5 +174,56 @@ impl EntryRepo {
         }
 
         Ok(stack.pop().unwrap().to_dir_entry())
+    }
+
+    pub async fn push_tmp(
+        tx: &mut Transaction<'_, Postgres>,
+        paths: Vec<String>,
+        sizes: Vec<i64>,
+        content_types: Vec<String>,
+        last_modified_items: Vec<i64>,
+    ) -> Result<()> {
+        query!(
+            "
+            INSERT INTO tmp SELECT * FROM UNNEST(
+                $1::text[],
+                $2::bigint[],
+                $3::text[],
+                $4::bigint[]
+            )
+            ",
+            &paths,
+            &sizes,
+            &content_types,
+            &last_modified_items,
+        )
+        .execute(&mut **tx)
+        .await
+        .and(Ok(()))
+        .map_err(Error::new)
+    }
+
+    pub async fn merge(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
+        query!(
+            "MERGE INTO files USING tmp ON files.path = tmp.path
+            WHEN MATCHED THEN UPDATE SET
+                size = tmp.size,
+                content_type = tmp.content_type,
+                last_modified = tmp.last_modified
+            WHEN NOT MATCHED BY SOURCE THEN DELETE
+            WHEN NOT MATCHED THEN INSERT VALUES (path, size, content_type, last_modified)"
+        )
+        .execute(&mut **tx)
+        .await
+        .and(Ok(()))
+        .map_err(Error::new)
+    }
+
+    pub async fn reset_tmp(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
+        query!("TRUNCATE tmp")
+            .execute(&mut **tx)
+            .await
+            .and(Ok(()))
+            .map_err(Error::new)
     }
 }
