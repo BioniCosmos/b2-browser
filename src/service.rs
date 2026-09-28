@@ -3,24 +3,17 @@ use sqlx::PgPool;
 
 use crate::{
     api::{B2API, File, ListFileNamesResponse},
+    arc,
     repo::EntryRepo,
 };
 
-pub struct Srv {
+arc!(Svc => SvcInner {
     db: PgPool,
     b2_api: B2API,
     bucket_id: String,
-}
+});
 
-impl Srv {
-    pub fn new(db: PgPool, b2_api: B2API, bucket_id: String) -> Self {
-        Self {
-            db,
-            b2_api,
-            bucket_id,
-        }
-    }
-
+impl Svc {
     pub async fn import(&self) -> Result<()> {
         let mut tx = self.db.begin().await?;
 

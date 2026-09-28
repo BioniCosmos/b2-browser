@@ -5,21 +5,23 @@ use base64::prelude::*;
 use reqwest::{Client, header::AUTHORIZATION};
 use serde::Deserialize;
 
-pub struct B2API {
+use crate::arc;
+
+arc!(B2API => B2APIInner {
     client: Client,
     base_url: String,
     token: String,
-}
+}, pub(self) new);
 
 impl B2API {
     pub async fn init(id: &str, key: &str) -> Result<Self> {
         let client = Client::new();
         let res = Self::authorize_account(&client, id, key).await?;
-        Ok(Self {
-            client: Client::new(),
-            base_url: res.api_info.storage_api.api_url,
-            token: res.authorization_token,
-        })
+        Ok(Self::new(
+            client,
+            res.api_info.storage_api.api_url,
+            res.authorization_token,
+        ))
     }
 
     async fn authorize_account(
