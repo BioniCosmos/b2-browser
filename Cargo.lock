@@ -192,6 +192,7 @@ dependencies = [
  "askama",
  "axum",
  "base64 0.23.1",
+ "dotenvy",
  "reqwest",
  "serde",
  "sqlx",
