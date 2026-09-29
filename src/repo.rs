@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use anyhow::{Error, Result, ensure};
+use anyhow::{Error, Result};
 use sqlx::{PgPool, Postgres, Transaction, query, query_as};
 
 use crate::utils;
@@ -51,7 +51,7 @@ impl EntryRepo {
         Self { db }
     }
 
-    pub async fn query(&self, path: &str) -> Result<Entry> {
+    pub async fn query(&self, path: &str) -> Result<Option<Entry>> {
         assert!(!path.ends_with('/') || path == "/");
 
         let mut raw_files: Vec<RawFile> = query_as!(
@@ -65,7 +65,9 @@ impl EntryRepo {
         )
         .fetch_all(&self.db)
         .await?;
-        ensure!(!raw_files.is_empty(), "not found");
+        if raw_files.is_empty() {
+            return Ok(None);
+        }
 
         fn raw_to_entry(
             RawFile {
@@ -86,7 +88,7 @@ impl EntryRepo {
         }
 
         if raw_files.len() == 1 && raw_files[0].path == path {
-            return Ok(raw_to_entry(raw_files.pop().unwrap()));
+            return Ok(Some(raw_to_entry(raw_files.pop().unwrap())));
         }
 
         #[derive(PartialEq)]
@@ -181,7 +183,7 @@ impl EntryRepo {
                 .push(top.into_dir_entry());
         }
 
-        Ok(stack.pop().unwrap().into_dir_entry())
+        Ok(Some(stack.pop().unwrap().into_dir_entry()))
     }
 
     pub async fn push_tmp(

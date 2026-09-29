@@ -20,12 +20,13 @@ async fn main() -> Result<()> {
     let b2_id = dotenvy::var("B2_ID")?;
     let b2_key = dotenvy::var("B2_KEY")?;
     let bucket_id = dotenvy::var("BUCKET_ID")?;
+    let file_base_url = dotenvy::var("FILE_BASE_URL")?;
 
     let db = PgPool::connect(&database_url).await?;
     let entry_repo = EntryRepo::new(db.clone());
     let b2_api = B2API::init(&b2_id, &b2_key).await?;
-    let svc = Svc::new(db, b2_api, bucket_id);
-    let app = route::init(AppState::new(entry_repo, svc));
+    let svc = Svc::new(db, entry_repo, b2_api, bucket_id, file_base_url);
+    let app = route::init(AppState::new(svc));
 
     let listener = TcpListener::bind(listen).await?;
     info!("listening on http://{}", listener.local_addr()?);

@@ -2,18 +2,66 @@ use anyhow::{Error, Result};
 use sqlx::PgPool;
 
 use crate::{
-    api::{B2API, File, ListFileNamesResponse},
+    api::{self, B2API, ListFileNamesResponse},
     arc,
-    repo::EntryRepo,
+    repo::{Dir, Entry, EntryRepo, File},
 };
 
 arc!(Svc => SvcInner {
     db: PgPool,
+    entry_repo: EntryRepo,
     b2_api: B2API,
     bucket_id: String,
+    file_base_url: String,
 });
 
+pub enum QueryResult {
+    Dir {
+        path: String,
+        directories: Vec<Dir>,
+        files: Vec<File>,
+    },
+    File(String),
+    NotFound,
+}
+
 impl Svc {
+    pub async fn query(&self, path: &str) -> Result<QueryResult> {
+        Ok(match self.entry_repo.query(path).await? {
+            Some(Entry::Dir(Dir {
+                name: _,
+                path,
+                children,
+            })) => {
+                let (directories, files) = children.into_iter().fold(
+                    (vec![], vec![]),
+                    |(mut directories, mut files), entry| {
+                        match entry {
+                            Entry::File(file) => files.push(file),
+                            Entry::Dir(dir) => directories.push(dir),
+                        }
+                        (directories, files)
+                    },
+                );
+                QueryResult::Dir {
+                    path,
+                    directories,
+                    files,
+                }
+            }
+            Some(Entry::File(file)) => {
+                let path = file
+                    .path
+                    .trim_start_matches('/')
+                    .split('/')
+                    .map(urlencoding::encode)
+                    .fold(String::new(), |acc, x| acc + "/" + &x);
+                QueryResult::File(self.file_base_url.clone() + &path)
+            }
+            None => QueryResult::NotFound,
+        })
+    }
+
     pub async fn import(&self) -> Result<()> {
         let mut tx = self.db.begin().await?;
 
@@ -31,7 +79,7 @@ impl Svc {
             let mut sizes: Vec<i64> = Vec::with_capacity(files.len());
             let mut content_types: Vec<String> = Vec::with_capacity(files.len());
             let mut last_modified_items: Vec<i64> = Vec::with_capacity(files.len());
-            for File {
+            for api::File {
                 action,
                 content_length,
                 content_type,

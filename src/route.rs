@@ -5,27 +5,26 @@ use axum::{
     Router,
     extract::{FromRef, Request, State},
     http::{StatusCode, header::CONTENT_TYPE},
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{Html, IntoResponse, Redirect, Response, Result},
     routing,
 };
 use tower_http::trace::TraceLayer;
-use tracing::error;
+use tracing::{error, instrument, warn};
 
 use crate::{
-    repo::{Dir, Entry, EntryRepo, File},
+    repo::{Dir, File},
     service::Svc,
     utils,
 };
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
-    entry_repo: EntryRepo,
     svc: Svc,
 }
 
 impl AppState {
-    pub fn new(entry_repo: EntryRepo, svc: Svc) -> Self {
-        Self { entry_repo, svc }
+    pub fn new(svc: Svc) -> Self {
+        Self { svc }
     }
 }
 
@@ -93,61 +92,42 @@ impl FileBrowser {
     }
 }
 
-async fn index(State(entry_repo): State<EntryRepo>, req: Request) -> Response {
+#[instrument(skip_all)]
+#[allow(clippy::result_large_err)]
+async fn index(State(svc): State<Svc>, req: Request) -> Result<Response> {
     let path = req.uri().path();
 
     if path == "/styles.css" {
-        return (
+        let res = (
             [(CONTENT_TYPE, "text/css")],
             include_str!(concat!(env!("OUT_DIR"), "/styles.css")),
-        )
-            .into_response();
+        );
+        return Ok(res.into_response());
     }
 
-    match entry_repo
-        .query(&urlencoding::decode(path).unwrap())
-        .await
-        .unwrap()
-    {
-        Entry::Dir(Dir {
-            name: _,
+    let path = urlencoding::decode(path).map_err(|e| {
+        warn!("failed to decode path in URL: {e}");
+        (StatusCode::BAD_REQUEST, "invalid path in URL")
+    })?;
+    use crate::service::QueryResult::*;
+    Ok(match svc.query(&path).await.map_err(Error::new)? {
+        Dir {
             path,
-            children,
-        }) => {
-            let (directories, files) = children.into_iter().fold(
-                (vec![], vec![]),
-                |(mut directories, mut files), entry| {
-                    match entry {
-                        Entry::File(file) => files.push(file),
-                        Entry::Dir(dir) => directories.push(dir),
-                    }
-                    (directories, files)
-                },
-            );
-            Html(
-                Index {
-                    children: Box::new(FileBrowser {
-                        path,
-                        directories,
-                        files,
-                    }),
-                }
-                .render()
-                .unwrap(),
-            )
-            .into_response()
-        }
-        Entry::File(file) => {
-            let base_url = env::var("FILE_BASE_URL").unwrap();
-            let path = file
-                .path
-                .trim_start_matches('/')
-                .split('/')
-                .map(urlencoding::encode)
-                .fold(String::new(), |acc, x| acc + "/" + &x);
-            Redirect::to(&(base_url + &path)).into_response()
-        }
-    }
+            directories,
+            files,
+        } => Html(
+            FileBrowser {
+                path,
+                directories,
+                files,
+            }
+            .render()
+            .map_err(Error::from)?,
+        )
+        .into_response(),
+        File(url) => Redirect::to(&url).into_response(),
+        NotFound => StatusCode::NOT_FOUND.into_response(),
+    })
 }
 
 async fn import(State(svc): State<Svc>) -> impl IntoResponse {
@@ -169,5 +149,11 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         error!("unexpected error: {:?}", self.0);
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+impl<E: std::error::Error + Send + Sync + 'static> From<E> for Error {
+    fn from(value: E) -> Self {
+        Self(anyhow::Error::new(value))
     }
 }
