@@ -84,7 +84,7 @@
 
   importButton.addEventListener('click', async () => {
     if (sessionStorage.getItem('importing') === 'true') {
-      alert('Importing…')
+      alert('importing…')
       return
     }
 
@@ -93,13 +93,13 @@
     try {
       const res = await fetch('/api/import', { method: 'POST' })
       if (res.ok) {
-        alert('Import successful')
+        alert('import successful')
       } else {
-        alert('Import failed')
+        alert('import failed')
       }
     } catch (e) {
       console.error(e)
-      alert('Import failed')
+      alert('import failed')
     } finally {
       sessionStorage.removeItem('importing')
       importButton.disabled = false

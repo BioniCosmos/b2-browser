@@ -4,12 +4,12 @@ use sqlx::PgPool;
 use crate::{
     api::{self, B2API, ListFileNamesResponse},
     arc,
-    repo::{Dir, Entry, EntryRepo, File},
+    repo::{Dir, Entry, File, FileRepo, UserRepo},
 };
 
-arc!(Svc => SvcInner {
+arc!(FileSvc => FileSvcInner {
     db: PgPool,
-    entry_repo: EntryRepo,
+    entry_repo: FileRepo,
     b2_api: B2API,
     bucket_id: String,
     file_base_url: String,
@@ -25,7 +25,7 @@ pub enum QueryResult {
     NotFound,
 }
 
-impl Svc {
+impl FileSvc {
     pub async fn query(&self, path: &str) -> Result<QueryResult> {
         Ok(match self.entry_repo.query(path).await? {
             Some(Entry::Dir(Dir {
@@ -96,13 +96,34 @@ impl Svc {
                 last_modified_items.push(upload_timestamp);
             }
 
-            EntryRepo::push_tmp(&mut tx, paths, sizes, content_types, last_modified_items).await?;
+            FileRepo::push_tmp(&mut tx, paths, sizes, content_types, last_modified_items).await?;
             start = next_file_name;
         }
 
-        EntryRepo::merge(&mut tx).await?;
-        EntryRepo::reset_tmp(&mut tx).await?;
+        FileRepo::merge(&mut tx).await?;
+        FileRepo::reset_tmp(&mut tx).await?;
 
         tx.commit().await.map_err(Error::new)
+    }
+}
+
+#[derive(Clone)]
+pub struct UserSvc {
+    user_repo: UserRepo,
+}
+
+impl UserSvc {
+    pub fn new(user_repo: UserRepo) -> Self {
+        Self { user_repo }
+    }
+
+    // TODO: no user as an error
+    // TODO: argon2
+    pub async fn login(&self, username: &str, password: &str) -> Result<bool> {
+        Ok(self
+            .user_repo
+            .query(username)
+            .await?
+            .is_some_and(|user| user.password == password))
     }
 }

@@ -6,7 +6,7 @@ use sqlx::{PgPool, Postgres, Transaction, query, query_as};
 use crate::utils;
 
 #[derive(Clone)]
-pub struct EntryRepo {
+pub struct FileRepo {
     db: PgPool,
 }
 
@@ -46,7 +46,7 @@ impl Entry {
     }
 }
 
-impl EntryRepo {
+impl FileRepo {
     pub fn new(db: PgPool) -> Self {
         Self { db }
     }
@@ -234,6 +234,28 @@ impl EntryRepo {
             .execute(&mut **tx)
             .await
             .and(Ok(()))
+            .map_err(Error::new)
+    }
+}
+
+#[derive(Clone)]
+pub struct UserRepo {
+    db: PgPool,
+}
+
+pub struct User {
+    pub password: String,
+}
+
+impl UserRepo {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+
+    pub async fn query(&self, name: &str) -> Result<Option<User>> {
+        query_as!(User, "SELECT password FROM users WHERE name = $1", &name)
+            .fetch_optional(&self.db)
+            .await
             .map_err(Error::new)
     }
 }

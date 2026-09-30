@@ -3,7 +3,12 @@ use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tracing::info;
 
-use crate::{api::B2API, repo::EntryRepo, route::AppState, service::Svc};
+use crate::{
+    api::B2API,
+    repo::{FileRepo, UserRepo},
+    route::AppState,
+    service::{FileSvc, UserSvc},
+};
 
 mod api;
 mod repo;
@@ -23,10 +28,12 @@ async fn main() -> Result<()> {
     let file_base_url = dotenvy::var("FILE_BASE_URL")?;
 
     let db = PgPool::connect(&database_url).await?;
-    let entry_repo = EntryRepo::new(db.clone());
+    let file_repo = FileRepo::new(db.clone());
+    let user_repo = UserRepo::new(db.clone());
     let b2_api = B2API::init(&b2_id, &b2_key).await?;
-    let svc = Svc::new(db, entry_repo, b2_api, bucket_id, file_base_url);
-    let app = route::init(AppState::new(svc));
+    let file_svc = FileSvc::new(db, file_repo, b2_api, bucket_id, file_base_url);
+    let user_svc = UserSvc::new(user_repo);
+    let app = route::init(AppState::new(file_svc, user_svc));
 
     let listener = TcpListener::bind(listen).await?;
     info!("listening on http://{}", listener.local_addr()?);

@@ -9,6 +9,7 @@ askama = "0.16"
 axum = { version = "0.8", features = ["macros"] }
 base64 = "0.23"
 dotenvy = "0.15"
+jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs"] }
 reqwest = { version = "0.13", features = ["json", "query"] }
 serde = { version = "1", features = ["derive"] }
 sqlx = { version = "0.9", features = ["postgres", "runtime-tokio"] }
