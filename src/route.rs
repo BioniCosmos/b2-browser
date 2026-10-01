@@ -1,11 +1,11 @@
 #![allow(clippy::result_large_err)]
 
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use askama::{DynTemplate, Template};
 use axum::{
     Json, Router,
-    extract::{FromRef, Request, State},
+    extract::{Request, State},
     http::{
         HeaderMap, HeaderName, StatusCode,
         header::{CONTENT_TYPE, SET_COOKIE},
@@ -20,6 +20,7 @@ use tower_http::trace::TraceLayer;
 use tracing::{error, instrument, warn};
 
 use crate::{
+    arc,
     repo::{Dir, File},
     service::{FileSvc, UserSvc},
     utils,
@@ -37,22 +38,21 @@ macro_rules! Result {
     };
 }
 
-#[derive(Clone, FromRef)]
-pub struct AppState {
+arc!(AppState => AppStateInner {
     file_svc: FileSvc,
     user_svc: UserSvc,
-    encoding_key: EncodingKey,
-    decoding_key: DecodingKey,
-}
+    encoding_key: Arc<EncodingKey>,
+    decoding_key: Arc<DecodingKey>,
+} with FromRef);
 
 impl AppState {
     pub fn new(file_svc: FileSvc, user_svc: UserSvc, jwt_secret: String) -> Self {
-        Self {
+        Self(Arc::new(AppStateInner {
             file_svc,
             user_svc,
-            encoding_key: EncodingKey::from_secret(jwt_secret.as_bytes()),
-            decoding_key: DecodingKey::from_secret(jwt_secret.as_bytes()),
-        }
+            encoding_key: Arc::new(EncodingKey::from_secret(jwt_secret.as_bytes())),
+            decoding_key: Arc::new(DecodingKey::from_secret(jwt_secret.as_bytes())),
+        }))
     }
 }
 
@@ -175,7 +175,7 @@ async fn index(State(svc): State<FileSvc>, req: Request) -> Result {
 struct Empty {}
 
 async fn auth(
-    State(key): State<DecodingKey>,
+    State(key): State<Arc<DecodingKey>>,
     header: HeaderMap,
     req: Request,
     next: Next,
@@ -229,7 +229,7 @@ struct LoginParams {
 
 async fn login(
     State(user_svc): State<UserSvc>,
-    State(key): State<EncodingKey>,
+    State(key): State<Arc<EncodingKey>>,
     Json(LoginParams { username, password }): Json<LoginParams>,
 ) -> Result!() {
     if !user_svc.login(&username, &password).await? {
