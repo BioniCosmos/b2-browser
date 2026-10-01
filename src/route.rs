@@ -1,18 +1,21 @@
 #![allow(clippy::result_large_err)]
 
+use std::collections::HashSet;
+
 use askama::{DynTemplate, Template};
 use axum::{
     Json, Router,
     extract::{FromRef, Request, State},
     http::{
-        HeaderName, StatusCode,
+        HeaderMap, HeaderName, StatusCode,
         header::{CONTENT_TYPE, SET_COOKIE},
     },
+    middleware::{self, Next},
     response::{Html, IntoResponse, Redirect, Response},
     routing,
 };
-use jsonwebtoken::{EncodingKey, Header};
-use serde::Deserialize;
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 use tracing::{error, instrument, warn};
 
@@ -60,39 +63,14 @@ pub fn init(state: AppState) -> Router {
     );
 
     Router::new()
+        .route("/api/import", routing::post(import))
+        .fallback(routing::get(index))
+        .layer(middleware::from_fn(auth))
         .route("/styles.css", routing::get(CSS))
         .route("/login", routing::get(login_page))
         .route("/api/login", routing::post(login))
-        .route("/api/import", routing::post(import))
-        .fallback(routing::get(index))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
-}
-
-const CSS: ([(HeaderName, &str); 1], &str) = (
-    [(CONTENT_TYPE, "text/css")],
-    include_str!(concat!(env!("OUT_DIR"), "/styles.css")),
-);
-
-#[derive(Deserialize)]
-struct LoginParams {
-    username: String,
-    password: String,
-}
-
-async fn login(
-    State(user_svc): State<UserSvc>,
-    Json(LoginParams { username, password }): Json<LoginParams>,
-) -> Result!() {
-    if !user_svc.login(&username, &password).await? {
-        throw!((StatusCode::UNAUTHORIZED, "wrong username or password"));
-    }
-    // TODO: use secret from env
-    let token = jsonwebtoken::encode(&Header::default(), &(), &EncodingKey::from_secret(&[]))?;
-    Ok((
-        StatusCode::NO_CONTENT,
-        [(SET_COOKIE, format!("token={token}; HttpOnly; Path=/"))],
-    ))
 }
 
 async fn import(State(svc): State<FileSvc>) -> impl IntoResponse {
@@ -184,6 +162,76 @@ async fn index(State(svc): State<FileSvc>, req: Request) -> Result {
         File(url) => Redirect::to(&url).into_response(),
         NotFound => StatusCode::NOT_FOUND.into_response(),
     })
+}
+
+#[derive(Serialize, Deserialize)]
+struct Empty {}
+
+async fn auth(header: HeaderMap, req: Request, next: Next) -> Response {
+    let ok = header.get("Cookie").is_some_and(|cookie| {
+        cookie
+            .to_str()
+            .map(|cookie| {
+                cookie
+                    .split("; ")
+                    .map(|entry| {
+                        let mut iter = entry.split('=');
+                        (iter.next(), iter.next())
+                    })
+                    .find(|(k, _)| k.is_some_and(|k| k == "token"))
+                    .is_some_and(|(_, v)| {
+                        v.is_some_and(|token| {
+                            jsonwebtoken::decode::<Empty>(
+                                token,
+                                &DecodingKey::from_secret(&[]),
+                                &Validation {
+                                    required_spec_claims: HashSet::new(),
+                                    validate_exp: false,
+                                    ..Default::default()
+                                },
+                            )
+                            .inspect_err(|e| warn!("JWT validation failed: {e}"))
+                            .is_ok()
+                        })
+                    })
+            })
+            .is_ok_and(|x| x)
+    });
+    if !ok {
+        // TODO: redirect to current path
+        return Redirect::to("/login").into_response();
+    }
+    next.run(req).await
+}
+
+const CSS: ([(HeaderName, &str); 1], &str) = (
+    [(CONTENT_TYPE, "text/css")],
+    include_str!(concat!(env!("OUT_DIR"), "/styles.css")),
+);
+
+#[derive(Deserialize)]
+struct LoginParams {
+    username: String,
+    password: String,
+}
+
+async fn login(
+    State(user_svc): State<UserSvc>,
+    Json(LoginParams { username, password }): Json<LoginParams>,
+) -> Result!() {
+    if !user_svc.login(&username, &password).await? {
+        throw!((StatusCode::UNAUTHORIZED, "wrong username or password"));
+    }
+    // TODO: use secret from env
+    let token = jsonwebtoken::encode(
+        &Header::default(),
+        &Empty {},
+        &EncodingKey::from_secret(&[]),
+    )?;
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(SET_COOKIE, format!("token={token}; HttpOnly; Path=/"))],
+    ))
 }
 
 struct Error(Response);
