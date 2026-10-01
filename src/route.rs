@@ -41,11 +41,18 @@ macro_rules! Result {
 pub struct AppState {
     file_svc: FileSvc,
     user_svc: UserSvc,
+    encoding_key: EncodingKey,
+    decoding_key: DecodingKey,
 }
 
 impl AppState {
-    pub fn new(file_svc: FileSvc, user_svc: UserSvc) -> Self {
-        Self { file_svc, user_svc }
+    pub fn new(file_svc: FileSvc, user_svc: UserSvc, jwt_secret: String) -> Self {
+        Self {
+            file_svc,
+            user_svc,
+            encoding_key: EncodingKey::from_secret(jwt_secret.as_bytes()),
+            decoding_key: DecodingKey::from_secret(jwt_secret.as_bytes()),
+        }
     }
 }
 
@@ -65,7 +72,7 @@ pub fn init(state: AppState) -> Router {
     Router::new()
         .route("/api/import", routing::post(import))
         .fallback(routing::get(index))
-        .layer(middleware::from_fn(auth))
+        .layer(middleware::from_fn_with_state(state.clone(), auth))
         .route("/styles.css", routing::get(CSS))
         .route("/login", routing::get(login_page))
         .route("/api/login", routing::post(login))
@@ -167,7 +174,12 @@ async fn index(State(svc): State<FileSvc>, req: Request) -> Result {
 #[derive(Serialize, Deserialize)]
 struct Empty {}
 
-async fn auth(header: HeaderMap, req: Request, next: Next) -> Response {
+async fn auth(
+    State(key): State<DecodingKey>,
+    header: HeaderMap,
+    req: Request,
+    next: Next,
+) -> Response {
     let ok = header.get("Cookie").is_some_and(|cookie| {
         cookie
             .to_str()
@@ -183,7 +195,7 @@ async fn auth(header: HeaderMap, req: Request, next: Next) -> Response {
                         v.is_some_and(|token| {
                             jsonwebtoken::decode::<Empty>(
                                 token,
-                                &DecodingKey::from_secret(&[]),
+                                &key,
                                 &Validation {
                                     required_spec_claims: HashSet::new(),
                                     validate_exp: false,
@@ -217,17 +229,13 @@ struct LoginParams {
 
 async fn login(
     State(user_svc): State<UserSvc>,
+    State(key): State<EncodingKey>,
     Json(LoginParams { username, password }): Json<LoginParams>,
 ) -> Result!() {
     if !user_svc.login(&username, &password).await? {
         throw!((StatusCode::UNAUTHORIZED, "wrong username or password"));
     }
-    // TODO: use secret from env
-    let token = jsonwebtoken::encode(
-        &Header::default(),
-        &Empty {},
-        &EncodingKey::from_secret(&[]),
-    )?;
+    let token = jsonwebtoken::encode(&Header::default(), &Empty {}, &key)?;
     Ok((
         StatusCode::NO_CONTENT,
         [(SET_COOKIE, format!("token={token}; HttpOnly; Path=/"))],
