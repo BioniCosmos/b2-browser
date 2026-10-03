@@ -9,12 +9,15 @@
         <a href="{{ item.path }}" class="hover:text-blue-600">{{ item.name }}</a>
       {% endfor %}
     </div>
-    <button
-      id="importButton"
-      class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-xs transition disabled:opacity-50 disabled:pointer-events-none"
-    >
-      Import
-    </button>
+    <div class="flex gap-2">
+      <button
+        id="importButton"
+        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-xs transition disabled:opacity-50 disabled:pointer-events-none"
+      >
+        Import
+      </button>
+      {% include "change-password.html" %}
+    </div>
   </div>
   <table class="w-full border-collapse">
     <thead>

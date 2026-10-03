@@ -253,9 +253,21 @@ impl UserRepo {
     }
 
     pub async fn query(&self, name: &str) -> Result<Option<User>> {
-        query_as!(User, "SELECT password FROM users WHERE name = $1", &name)
+        query_as!(User, "SELECT password FROM users WHERE name = $1", name)
             .fetch_optional(&self.db)
             .await
             .map_err(Error::new)
+    }
+
+    pub async fn update(&self, name: &str, password: &str) -> Result<()> {
+        query!(
+            "UPDATE users SET name = $1, password = $2 WHERE name = $1",
+            name,
+            password
+        )
+        .execute(&self.db)
+        .await
+        .and(Ok(()))
+        .map_err(Error::new)
     }
 }

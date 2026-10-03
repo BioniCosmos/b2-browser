@@ -4,7 +4,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use askama::{DynTemplate, Template};
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Request, State},
     http::{
         HeaderMap, HeaderName, StatusCode,
@@ -71,6 +71,7 @@ pub fn init(state: AppState) -> Router {
 
     Router::new()
         .route("/api/import", routing::post(import))
+        .route("/api/user", routing::put(update_user))
         .fallback(routing::get(index))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
         .route("/styles.css", routing::get(CSS))
@@ -84,6 +85,22 @@ async fn import(State(svc): State<FileSvc>) -> impl IntoResponse {
     svc.import()
         .await
         .and(Ok(StatusCode::NO_CONTENT))
+        .map_err(Error::from)
+}
+
+#[derive(Deserialize)]
+struct UserUpdateParams {
+    password: String,
+}
+
+async fn update_user(
+    State(user_svc): State<UserSvc>,
+    Extension(username): Extension<String>,
+    Json(UserUpdateParams { password }): Json<UserUpdateParams>,
+) -> impl IntoResponse {
+    user_svc
+        .update(&username, &password)
+        .await
         .map_err(Error::from)
 }
 
