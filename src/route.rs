@@ -14,7 +14,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing,
 };
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 use tracing::{error, instrument, warn};
@@ -172,47 +172,47 @@ async fn index(State(svc): State<FileSvc>, req: Request) -> Result {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Empty {}
+struct Claims {
+    sub: String,
+}
 
 async fn auth(
     State(key): State<Arc<DecodingKey>>,
     header: HeaderMap,
-    req: Request,
+    mut req: Request,
     next: Next,
 ) -> Response {
-    let ok = header.get("Cookie").is_some_and(|cookie| {
-        cookie
-            .to_str()
-            .map(|cookie| {
-                cookie
-                    .split("; ")
-                    .map(|entry| {
-                        let mut iter = entry.split('=');
-                        (iter.next(), iter.next())
+    let Some(username) = header.get("Cookie").and_then(|cookie| {
+        cookie.to_str().ok().and_then(|cookie| {
+            cookie
+                .split("; ")
+                .map(|entry| {
+                    let mut iter = entry.split('=');
+                    (iter.next(), iter.next())
+                })
+                .find(|(k, _)| k.is_some_and(|k| k == "token"))
+                .and_then(|(_, v)| {
+                    v.and_then(|token| {
+                        jsonwebtoken::decode::<Claims>(
+                            token,
+                            &key,
+                            &Validation {
+                                required_spec_claims: HashSet::new(),
+                                validate_exp: false,
+                                ..Default::default()
+                            },
+                        )
+                        .map(|TokenData { claims, .. }| claims.sub)
+                        .inspect_err(|e| warn!("JWT validation failed: {e}"))
+                        .ok()
                     })
-                    .find(|(k, _)| k.is_some_and(|k| k == "token"))
-                    .is_some_and(|(_, v)| {
-                        v.is_some_and(|token| {
-                            jsonwebtoken::decode::<Empty>(
-                                token,
-                                &key,
-                                &Validation {
-                                    required_spec_claims: HashSet::new(),
-                                    validate_exp: false,
-                                    ..Default::default()
-                                },
-                            )
-                            .inspect_err(|e| warn!("JWT validation failed: {e}"))
-                            .is_ok()
-                        })
-                    })
-            })
-            .is_ok_and(|x| x)
-    });
-    if !ok {
+                })
+        })
+    }) else {
         // TODO: redirect to current path
         return Redirect::to("/login").into_response();
-    }
+    };
+    req.extensions_mut().insert(username);
     next.run(req).await
 }
 
@@ -235,7 +235,7 @@ async fn login(
     if !user_svc.login(&username, &password).await? {
         throw!((StatusCode::UNAUTHORIZED, "wrong username or password"));
     }
-    let token = jsonwebtoken::encode(&Header::default(), &Empty {}, &key)?;
+    let token = jsonwebtoken::encode(&Header::default(), &Claims { sub: username }, &key)?;
     Ok((
         StatusCode::NO_CONTENT,
         [(SET_COOKIE, format!("token={token}; HttpOnly; Path=/"))],
