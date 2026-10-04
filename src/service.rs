@@ -1,5 +1,5 @@
 use anyhow::{Error, Result};
-use argon2::{Argon2, PasswordHasher};
+use argon2::{Argon2, PasswordHasher, PasswordVerifier};
 use sqlx::PgPool;
 
 use crate::{
@@ -124,11 +124,11 @@ impl UserSvc {
 
     // TODO: no user as an error
     pub async fn login(&self, username: &str, password: &str) -> Result<bool> {
-        Ok(self
-            .user_repo
-            .query(username)
-            .await?
-            .is_some_and(|user| user.password == password))
+        Ok(self.user_repo.query(username).await?.is_some_and(|user| {
+            self.argon2
+                .verify_password(password.as_bytes(), user.password.as_str())
+                .is_ok()
+        }))
     }
 
     pub async fn update(&self, name: &str, password: &str) -> Result<()> {
