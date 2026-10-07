@@ -249,8 +249,8 @@ async fn login(
     State(key): State<Arc<EncodingKey>>,
     Json(LoginParams { username, password }): Json<LoginParams>,
 ) -> Result!() {
-    if !user_svc.login(&username, &password).await? {
-        throw!((StatusCode::UNAUTHORIZED, "wrong username or password"));
+    if let Err(e) = user_svc.login(&username, &password).await {
+        throw!((StatusCode::UNAUTHORIZED, e.to_string()));
     }
     let token = jsonwebtoken::encode(&Header::default(), &Claims { sub: username }, &key)?;
     Ok((
