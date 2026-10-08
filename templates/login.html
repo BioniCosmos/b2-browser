@@ -53,7 +53,7 @@
         errorMessage.classList.remove('hidden')
         return
       }
-      location = '/'
+      location = new URLSearchParams(location.search).get('redirect') ?? '/'
     } catch (e) {
       console.error(e)
       errorMessage.textContent = 'login failed'

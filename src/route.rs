@@ -226,8 +226,11 @@ async fn auth(
                 })
         })
     }) else {
-        // TODO: redirect to current path
-        return Redirect::to("/login").into_response();
+        return Redirect::to(&format!(
+            "/login?redirect={}",
+            urlencoding::encode(req.uri().path_and_query().unwrap().as_str())
+        ))
+        .into_response();
     };
     req.extensions_mut().insert(username);
     next.run(req).await
