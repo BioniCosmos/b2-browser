@@ -1,6 +1,9 @@
 #![allow(clippy::result_large_err)]
 
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use askama::{DynTemplate, Template};
 use axum::{
@@ -191,6 +194,7 @@ async fn index(State(svc): State<FileSvc>, req: Request) -> Result {
 #[derive(Serialize, Deserialize)]
 struct Claims {
     sub: String,
+    exp: u64,
 }
 
 async fn auth(
@@ -210,18 +214,10 @@ async fn auth(
                 .find(|(k, _)| k.is_some_and(|k| k == "token"))
                 .and_then(|(_, v)| {
                     v.and_then(|token| {
-                        jsonwebtoken::decode::<Claims>(
-                            token,
-                            &key,
-                            &Validation {
-                                required_spec_claims: HashSet::new(),
-                                validate_exp: false,
-                                ..Default::default()
-                            },
-                        )
-                        .map(|TokenData { claims, .. }| claims.sub)
-                        .inspect_err(|e| warn!("JWT validation failed: {e}"))
-                        .ok()
+                        jsonwebtoken::decode::<Claims>(token, &key, &Validation::default())
+                            .map(|TokenData { claims, .. }| claims.sub)
+                            .inspect_err(|e| warn!("JWT validation failed: {e}"))
+                            .ok()
                     })
                 })
         })
@@ -255,10 +251,27 @@ async fn login(
     if let Err(e) = user_svc.login(&username, &password).await {
         throw!((StatusCode::UNAUTHORIZED, e.to_string()));
     }
-    let token = jsonwebtoken::encode(&Header::default(), &Claims { sub: username }, &key)?;
+    let week = Duration::from_hours(24 * 7);
+    let token = jsonwebtoken::encode(
+        &Header::default(),
+        &Claims {
+            sub: username,
+            exp: (SystemTime::now() + week)
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        },
+        &key,
+    )?;
     Ok((
         StatusCode::NO_CONTENT,
-        [(SET_COOKIE, format!("token={token}; HttpOnly; Path=/"))],
+        [(
+            SET_COOKIE,
+            format!(
+                "token={token}; HttpOnly; Max-Age={}; Path=/",
+                week.as_secs()
+            ),
+        )],
     ))
 }
 
