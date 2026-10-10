@@ -11,12 +11,17 @@ const BASE_URL: &str =
 const SCRIPT: &str = r#"
 set -euo pipefail
 
-if [ ! -e tailwindcss ]; then
+command -v tailwindcss &> /dev/null && in_path=0 || in_path=1
+
+command=./tailwindcss
+if [ $in_path -eq 0 ]; then command=tailwindcss; fi
+
+if [ ! -e tailwindcss ] && [ $in_path -eq 1 ]; then
   curl -Lo tailwindcss $0
   chmod +x tailwindcss
 fi
 
-echo '@import "tailwindcss";' | ./tailwindcss -i - -o $OUT_DIR/styles.css --cwd $CARGO_MANIFEST_DIR/templates --silent
+echo '@import "tailwindcss";' | $command -i - -o $OUT_DIR/styles.css --cwd $CARGO_MANIFEST_DIR/templates --silent
 "#;
 
 fn main() {
