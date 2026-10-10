@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "TRUNCATE tmp",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "8364f2aa83b3eb1c439d748f173ec39cfbcff04d867b4481aae05fd505a3b03e"
+}

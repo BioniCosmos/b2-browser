@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "MERGE INTO files USING tmp ON files.path = tmp.path\n            WHEN MATCHED THEN UPDATE SET\n                size = tmp.size,\n                content_type = tmp.content_type,\n                last_modified = tmp.last_modified\n            WHEN NOT MATCHED BY SOURCE THEN DELETE\n            WHEN NOT MATCHED THEN INSERT VALUES (path, size, content_type, last_modified)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "02f80b1b3ca9f530f4f9422dd6298616be44817b43a4d669cca0dfb62b8e1157"
+}
