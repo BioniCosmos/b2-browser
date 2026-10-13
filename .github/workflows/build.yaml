@@ -12,11 +12,11 @@ jobs:
         target:
           - runner: ubuntu-latest
             name: x86_64-unknown-linux-musl
-            pre: sudo apt-get -y install musl-tools
+            pre: true
             output: linux-x86_64
           - runner: ubuntu-26.04-arm
             name: aarch64-unknown-linux-musl
-            pre: sudo apt-get -y install musl-tools
+            pre: true
             output: linux-aarch64
           - runner: macos-latest
             name: aarch64-apple-darwin
@@ -24,7 +24,11 @@ jobs:
     runs-on: ${{ matrix.target.runner }}
     steps:
       - uses: actions/checkout@v7
-      - run: ${{ matrix.target.pre }}
+      - name: Prerequisites
+        if: matrix.target.pre
+        run: |
+          sudo apt-get -y install musl-tools
+          rustup target add ${{ matrix.target.name }}
       - name: Cache
         uses: actions/cache@v6
         with:
