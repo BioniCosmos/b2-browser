@@ -57,6 +57,6 @@ jobs:
         with:
           merge-multiple: true
       - name: Publish built binary to GitHub releases
-        run: gh release create -R $GITHUB_REPOSITORY -d -n "" b2-browser-*
+        run: gh release create -R $GITHUB_REPOSITORY -d --generate-notes $GITHUB_REF_NAME b2-browser-*
         env:
           GH_TOKEN: ${{ github.token }}
