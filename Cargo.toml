@@ -19,3 +19,7 @@ tower-http = { version = "0.7", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 urlencoding = "2"
+
+[profile.release]
+strip = true
+lto = "thin"
