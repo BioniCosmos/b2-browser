@@ -1,8 +1,5 @@
 use std::{
-    env::{
-        self,
-        consts::{ARCH, OS},
-    },
+    env::{self},
     process::Command,
 };
 
@@ -25,11 +22,12 @@ echo '@import "tailwindcss";' | $command -i - -o $OUT_DIR/styles.css --cwd $CARG
 "#;
 
 fn main() {
-    let suffix = match (ARCH, OS) {
-        ("x86_64", "linux") => "linux-x64-musl",
-        ("x86_64", "macos") => "macos-x64",
-        ("aarch64", "linux") => "linux-arm64-musl",
-        ("aarch64", "macos") => "macos-arm64",
+    let suffix = match env::var("HOST").unwrap().as_ref() {
+        "x86_64-unknown-linux-gnu" => "linux-x64",
+        "x86_64-unknown-linux-musl" => "linux-x64-musl",
+        "aarch64-unknown-linux-gnu" => "linux-arm64",
+        "aarch64-unknown-linux-musl" => "linux-arm64-musl",
+        "aarch64-apple-darwin" => "macos-arm64",
         _ => panic!("unsupported environment"),
     };
     assert!(
