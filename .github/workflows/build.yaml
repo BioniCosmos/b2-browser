@@ -12,11 +12,11 @@ jobs:
         target:
           - runner: ubuntu-latest
             name: x86_64-unknown-linux-musl
-            pre: apt-get -y install musl-tools
+            pre: sudo apt-get -y install musl-tools
             output: linux-x86_64
           - runner: ubuntu-26.04-arm
             name: aarch64-unknown-linux-musl
-            pre: apt-get -y install musl-tools
+            pre: sudo apt-get -y install musl-tools
             output: linux-aarch64
           - runner: macos-latest
             name: aarch64-apple-darwin
