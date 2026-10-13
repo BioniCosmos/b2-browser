@@ -36,7 +36,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.target.output }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build
         run: |
           cargo build -r --target ${{ matrix.target.name }}
@@ -58,3 +58,5 @@ jobs:
           merge-multiple: true
       - name: Publish built binary to GitHub releases
         run: gh release create -R $GITHUB_REPOSITORY -d -n "" b2-browser-*
+        env:
+          GH_TOKEN: ${{ github.token }}
