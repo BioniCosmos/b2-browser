@@ -48,6 +48,13 @@
           <td class="p-3 border-b border-gray-100">-</td>
         </tr>
       {% endif %}
+      {% if directories.is_empty() && files.is_empty() %}
+        <tr>
+          <td colspan="3" class="p-8 text-center text-sm text-gray-400">
+            This directory is empty. Try to import?
+          </td>
+        </tr>
+      {% endif %}
       {% for file in directories %}
         <tr class="hover:bg-gray-50">
           <td class="p-3 border-b border-gray-100">

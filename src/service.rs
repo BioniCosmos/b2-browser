@@ -50,6 +50,11 @@ impl FileSvc {
                     files,
                 }
             }
+            None if path == "/" => QueryResult::Dir {
+                path: path.to_owned(),
+                directories: vec![],
+                files: vec![],
+            },
             Some(Entry::File(file)) => {
                 let path = file
                     .path
