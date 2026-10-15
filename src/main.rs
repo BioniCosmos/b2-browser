@@ -1,5 +1,5 @@
 use anyhow::{Error, Result};
-use sqlx::PgPool;
+use sqlx::{PgPool, migrate};
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -29,6 +29,8 @@ async fn main() -> Result<()> {
     let jwt_secret = dotenvy::var("JWT_SECRET")?;
 
     let db = PgPool::connect(&database_url).await?;
+    migrate!().run(&db).await?;
+
     let file_repo = FileRepo::new(db.clone());
     let user_repo = UserRepo::new(db.clone());
     let b2_api = B2API::init(&b2_id, &b2_key).await?;
