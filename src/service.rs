@@ -145,4 +145,13 @@ impl UserSvc {
             )
             .await
     }
+
+    pub async fn ensure_init(&self) -> Result<()> {
+        if self.user_repo.count().await? > 0 {
+            return Ok(());
+        }
+        self.user_repo
+            .create("admin", &self.argon2.hash_password(b"admin")?.to_string())
+            .await
+    }
 }

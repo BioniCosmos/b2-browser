@@ -35,9 +35,11 @@ async fn main() -> Result<()> {
     let user_repo = UserRepo::new(db.clone());
     let b2_api = B2API::init(&b2_id, &b2_key).await?;
     let file_svc = FileSvc::new(db, file_repo, b2_api, bucket_id, file_base_url);
-    let user_svc = UserSvc::new(user_repo);
-    let app = route::init(AppState::new(file_svc, user_svc, jwt_secret));
 
+    let user_svc = UserSvc::new(user_repo);
+    user_svc.ensure_init().await?;
+
+    let app = route::init(AppState::new(file_svc, user_svc, jwt_secret));
     let listener = TcpListener::bind(listen).await?;
     info!("listening on http://{}", listener.local_addr()?);
     axum::serve(listener, app).await.map_err(Error::new)

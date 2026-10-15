@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use anyhow::{Error, Result};
-use sqlx::{PgPool, Postgres, Transaction, query, query_as};
+use sqlx::{PgPool, Postgres, Transaction, query, query_as, query_scalar};
 
 use crate::utils;
 
@@ -256,6 +256,22 @@ impl UserRepo {
         query_as!(User, "SELECT password FROM users WHERE name = $1", name)
             .fetch_optional(&self.db)
             .await
+            .map_err(Error::new)
+    }
+
+    pub async fn count(&self) -> Result<i64> {
+        query_scalar!("SELECT count(*) FROM users")
+            .fetch_one(&self.db)
+            .await
+            .map(|x| x.unwrap())
+            .map_err(Error::new)
+    }
+
+    pub async fn create(&self, name: &str, password: &str) -> Result<()> {
+        query!("INSERT INTO users VALUES ($1, $2)", name, password)
+            .execute(&self.db)
+            .await
+            .and(Ok(()))
             .map_err(Error::new)
     }
 
