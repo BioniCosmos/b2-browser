@@ -1,39 +1,83 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use anyhow::{Error, Result, bail};
 use base64::prelude::*;
 use reqwest::{Client, header::AUTHORIZATION};
 use serde::Deserialize;
+use tokio::sync::RwLock;
 
-use crate::arc;
+#[derive(Clone)]
+pub struct B2API(Arc<B2APIInner>);
 
-arc!(B2API => B2APIInner {
+#[derive(Default)]
+pub struct B2APIInner {
     client: Client,
+    id: Arc<str>,
+    key: Arc<str>,
+    state: RwLock<State>,
+}
+
+struct State {
+    created_at: SystemTime,
     base_url: String,
     token: String,
-}, pub(self) new);
+}
+
+impl Deref for B2API {
+    type Target = B2APIInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            created_at: SystemTime::UNIX_EPOCH,
+            base_url: Default::default(),
+            token: Default::default(),
+        }
+    }
+}
 
 impl B2API {
-    pub async fn init(id: &str, key: &str) -> Result<Self> {
-        let client = Client::new();
-        let res = Self::authorize_account(&client, id, key).await?;
-        Ok(Self::new(
-            client,
-            res.api_info.storage_api.api_url,
-            res.authorization_token,
-        ))
+    pub fn new(id: Arc<str>, key: Arc<str>) -> Self {
+        Self(Arc::new(B2APIInner {
+            id,
+            key,
+            ..Default::default()
+        }))
     }
 
-    async fn authorize_account(
-        client: &Client,
-        id: &str,
-        key: &str,
-    ) -> Result<AuthorizeAccountResponse> {
-        let res = client
+    async fn ensure_state(&self) -> Result<()> {
+        if self.state.read().await.created_at + Duration::from_hours(24) > SystemTime::now() {
+            return Ok(());
+        }
+        let res = self.authorize_account().await?;
+        *self.state.write().await = State {
+            created_at: SystemTime::now(),
+            base_url: res.api_info.storage_api.api_url,
+            token: res.authorization_token,
+        };
+        Ok(())
+    }
+
+    async fn authorize_account(&self) -> Result<AuthorizeAccountResponse> {
+        let res = self
+            .client
             .get("https://api.backblazeb2.com/b2api/v4/b2_authorize_account")
             .header(
                 AUTHORIZATION,
-                format!("Basic {}", BASE64_STANDARD.encode(format!("{id}:{key}"))),
+                format!(
+                    "Basic {}",
+                    BASE64_STANDARD.encode(format!("{}:{}", self.id, self.key))
+                ),
             )
             .send()
             .await?;
@@ -53,14 +97,19 @@ impl B2API {
         bucket_id: &str,
         start_file_name: &str,
     ) -> Result<ListFileNamesResponse> {
+        self.ensure_state().await?;
+
         let mut query = HashMap::from([("bucketId", bucket_id), ("maxFileCount", "10000")]);
         if !start_file_name.is_empty() {
             query.insert("startFileName", start_file_name);
         }
+        let State {
+            base_url, token, ..
+        } = &*self.state.read().await;
         let res = self
             .client
-            .get(format!("{}/b2api/v4/b2_list_file_names", self.base_url))
-            .header(AUTHORIZATION, &self.token)
+            .get(format!("{base_url}/b2api/v4/b2_list_file_names",))
+            .header(AUTHORIZATION, token)
             .query(&query)
             .send()
             .await?;

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::{Error, Result};
 use sqlx::{PgPool, migrate};
 use tokio::net::TcpListener;
@@ -22,8 +24,8 @@ async fn main() -> Result<()> {
 
     let listen = dotenvy::var("LISTEN").unwrap_or("127.0.0.1:3000".to_owned());
     let database_url = dotenvy::var("DATABASE_URL")?;
-    let b2_id = dotenvy::var("B2_ID")?;
-    let b2_key = dotenvy::var("B2_KEY")?;
+    let b2_id = Arc::from(dotenvy::var("B2_ID")?);
+    let b2_key = Arc::from(dotenvy::var("B2_KEY")?);
     let bucket_id = dotenvy::var("BUCKET_ID")?;
     let file_base_url = dotenvy::var("FILE_BASE_URL")?;
     let jwt_secret = dotenvy::var("JWT_SECRET")?;
@@ -33,7 +35,7 @@ async fn main() -> Result<()> {
 
     let file_repo = FileRepo::new(db.clone());
     let user_repo = UserRepo::new(db.clone());
-    let b2_api = B2API::init(&b2_id, &b2_key).await?;
+    let b2_api = B2API::new(b2_id, b2_key);
     let file_svc = FileSvc::new(db, file_repo, b2_api, bucket_id, file_base_url);
 
     let user_svc = UserSvc::new(user_repo);
