@@ -23,6 +23,16 @@ mod utils;
 async fn main() -> Result<()> {
     log_init();
 
+    macro_rules! read_env {
+        ($key:expr) => {
+            match dotenvy::var($key) {
+                Ok(x) => x,
+                Err(EnvVar(NotPresent)) => bail!("`{} not found`", $key),
+                Err(e) => return Err(e).with_context(|| format!("failed to read env {}`", $key)),
+            }
+        };
+    }
+
     fn read_opt(key: &str) -> Result<Option<String>> {
         match dotenvy::var(key) {
             Ok(x) => Ok(Some(x)),
@@ -32,15 +42,15 @@ async fn main() -> Result<()> {
     }
 
     let listen = dotenvy::var("LISTEN").unwrap_or("127.0.0.1:3000".to_owned());
-    let database_url = dotenvy::var("DATABASE_URL")?;
-    let b2_id = Arc::from(dotenvy::var("B2_ID")?);
-    let b2_key = Arc::from(dotenvy::var("B2_KEY")?);
+    let database_url = read_env!("DATABASE_URL");
+    let b2_id = Arc::from(read_env!("B2_ID"));
+    let b2_key = Arc::from(read_env!("B2_KEY"));
     let (bucket_id, bucket_name) = match (read_opt("BUCKET_ID")?, read_opt("BUCKET_NAME")?) {
         (None, None) => bail!("both env `BUCKET_ID` and `BUCKET_NAME` not found"),
         x => x,
     };
-    let file_base_url = dotenvy::var("FILE_BASE_URL")?;
-    let jwt_secret = dotenvy::var("JWT_SECRET")?;
+    let file_base_url = read_env!("FILE_BASE_URL");
+    let jwt_secret = read_env!("JWT_SECRET");
 
     let db = PgPool::connect(&database_url).await?;
     migrate!().run(&db).await?;
