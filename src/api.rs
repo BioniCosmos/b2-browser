@@ -24,6 +24,7 @@ pub struct B2APIInner {
 
 struct State {
     created_at: SystemTime,
+    account_id: String,
     base_url: String,
     token: String,
 }
@@ -40,6 +41,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             created_at: SystemTime::UNIX_EPOCH,
+            account_id: Default::default(),
             base_url: Default::default(),
             token: Default::default(),
         }
@@ -62,6 +64,7 @@ impl B2API {
         let res = self.authorize_account().await?;
         *self.state.write().await = State {
             created_at: SystemTime::now(),
+            account_id: res.account_id,
             base_url: res.api_info.storage_api.api_url,
             token: res.authorization_token,
         };
@@ -123,6 +126,37 @@ impl B2API {
         }
         res.json().await.map_err(Error::new)
     }
+
+    pub async fn list_buckets(&self, bucket_name: &str) -> Result<ListBucketsResponse> {
+        self.ensure_state().await?;
+
+        let State {
+            account_id,
+            base_url,
+            token,
+            ..
+        } = &*self.state.read().await;
+        let params = HashMap::from([
+            ("accountId", account_id.as_str()),
+            ("bucketName", bucket_name),
+        ]);
+        let res = self
+            .client
+            .post(format!("{base_url}/b2api/v4/b2_list_buckets",))
+            .header(AUTHORIZATION, token)
+            .json(&params)
+            .send()
+            .await?;
+        if !res.status().is_success() {
+            let ErrorDetails {
+                status,
+                code,
+                message,
+            } = res.json::<ErrorDetails>().await?;
+            bail!("[B2API::list_buckets] {status} {code}: {message}");
+        }
+        res.json().await.map_err(Error::new)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,6 +169,7 @@ pub struct ErrorDetails {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorizeAccountResponse {
+    account_id: String,
     api_info: APIInfo,
     authorization_token: String,
 }
@@ -166,4 +201,16 @@ pub struct File {
     pub content_type: String,
     pub file_name: String,
     pub upload_timestamp: i64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListBucketsResponse {
+    pub buckets: Vec<Bucket>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Bucket {
+    pub bucket_id: String,
 }

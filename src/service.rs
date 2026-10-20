@@ -1,6 +1,9 @@
+use std::borrow::Cow;
+
 use anyhow::{Context, Error, Result, ensure};
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
 use sqlx::PgPool;
+use tracing::instrument;
 
 use crate::{
     api::{self, B2API, ListFileNamesResponse},
@@ -12,7 +15,8 @@ arc!(FileSvc => FileSvcInner {
     db: PgPool,
     entry_repo: FileRepo,
     b2_api: B2API,
-    bucket_id: String,
+    bucket_id: Option<String>,
+    bucket_name: Option<String>,
     file_base_url: String,
 });
 
@@ -68,7 +72,23 @@ impl FileSvc {
         })
     }
 
+    #[instrument(err, skip(self))]
     pub async fn import(&self) -> Result<()> {
+        let bucket_id = if let Some(bucket_id) = &self.bucket_id {
+            Cow::Borrowed(bucket_id)
+        } else {
+            let bucket_name = self.bucket_name.as_ref().unwrap();
+            Cow::Owned(
+                self.b2_api
+                    .list_buckets(bucket_name)
+                    .await?
+                    .buckets
+                    .pop()
+                    .with_context(|| format!("no such bucket: {bucket_name}"))?
+                    .bucket_id,
+            )
+        };
+
         let mut tx = self.db.begin().await?;
 
         let mut start = Some(String::new());
@@ -78,7 +98,7 @@ impl FileSvc {
                 next_file_name,
             } = self
                 .b2_api
-                .list_file_names(&self.bucket_id, &start_file_name)
+                .list_file_names(&bucket_id, &start_file_name)
                 .await?;
 
             let mut paths: Vec<String> = Vec::with_capacity(files.len());

@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{env::VarError::NotPresent, sync::Arc};
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result, bail};
+use dotenvy::Error::EnvVar;
 use sqlx::{PgPool, migrate};
 use tokio::net::TcpListener;
 use tracing::info;
@@ -22,11 +23,22 @@ mod utils;
 async fn main() -> Result<()> {
     log_init();
 
+    fn read_opt(key: &str) -> Result<Option<String>> {
+        match dotenvy::var(key) {
+            Ok(x) => Ok(Some(x)),
+            Err(EnvVar(NotPresent)) => Ok(None),
+            Err(e) => Err(e).with_context(|| format!("failed to read env `{key}`")),
+        }
+    }
+
     let listen = dotenvy::var("LISTEN").unwrap_or("127.0.0.1:3000".to_owned());
     let database_url = dotenvy::var("DATABASE_URL")?;
     let b2_id = Arc::from(dotenvy::var("B2_ID")?);
     let b2_key = Arc::from(dotenvy::var("B2_KEY")?);
-    let bucket_id = dotenvy::var("BUCKET_ID")?;
+    let (bucket_id, bucket_name) = match (read_opt("BUCKET_ID")?, read_opt("BUCKET_NAME")?) {
+        (None, None) => bail!("both env `BUCKET_ID` and `BUCKET_NAME` not found"),
+        x => x,
+    };
     let file_base_url = dotenvy::var("FILE_BASE_URL")?;
     let jwt_secret = dotenvy::var("JWT_SECRET")?;
 
@@ -36,7 +48,7 @@ async fn main() -> Result<()> {
     let file_repo = FileRepo::new(db.clone());
     let user_repo = UserRepo::new(db.clone());
     let b2_api = B2API::new(b2_id, b2_key);
-    let file_svc = FileSvc::new(db, file_repo, b2_api, bucket_id, file_base_url);
+    let file_svc = FileSvc::new(db, file_repo, b2_api, bucket_id, bucket_name, file_base_url);
 
     let user_svc = UserSvc::new(user_repo);
     user_svc.ensure_init().await?;
@@ -48,9 +60,6 @@ async fn main() -> Result<()> {
 }
 
 fn log_init() {
-    use std::env::VarError::NotPresent;
-
-    use dotenvy::Error::EnvVar;
     use tracing_subscriber::EnvFilter;
 
     let filter = if let Err(EnvVar(NotPresent)) = dotenvy::var(EnvFilter::DEFAULT_ENV) {
