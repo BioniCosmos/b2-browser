@@ -1,7 +1,7 @@
-<div class="bg-white rounded-lg shadow-md p-5 max-w-7xl mx-auto">
+<div class="bg-white md:rounded-lg md:shadow-md md:m-4 p-4">
   <div class="flex justify-between items-center gap-4 mb-5">
     <div
-      class="grow p-2 bg-gray-50 border border-gray-100 rounded-lg font-bold text-xl text-gray-800"
+      class="grow p-2 bg-gray-50 border border-gray-100 rounded-lg font-bold text-xl text-gray-800 overflow-x-auto text-nowrap"
     >
       <a href="/" class="hover:text-blue-600">root</a>
       {% for item in Self::breadcrumbs(path) %}
@@ -9,97 +9,145 @@
         <a href="{{ item.path }}" class="hover:text-blue-600">{{ item.name }}</a>
       {% endfor %}
     </div>
-    <div class="flex gap-2">
+    <div>
       <button
-        id="importButton"
-        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-xs transition disabled:opacity-50 disabled:pointer-events-none"
+        popovertarget="menu"
+        class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs transition"
       >
-        Import
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="lucide lucide-menu preview-icon"
+        >
+          <path d="M4 5h16" />
+          <path d="M4 12h16" />
+          <path d="M4 19h16" />
+        </svg>
       </button>
-      {% include "change-password.html" %}
+      <div
+        id="menu"
+        popover
+        class="[position-area:bottom_span-left] top-2 min-w-44 rounded-lg border border-gray-200 p-1.5 text-zinc-800 shadow-lg"
+      >
+        <button
+          id="importButton"
+          class="block w-full text-left cursor-pointer rounded-md px-3 py-2 hover:bg-gray-100"
+        >
+          Import
+        </button>
+        <button
+          commandfor="dialog"
+          command="show-modal"
+          class="block w-full text-left cursor-pointer rounded-md px-3 py-2 hover:bg-gray-100"
+        >
+          Change password
+        </button>
+      </div>
     </div>
   </div>
-  <table class="w-full border-collapse">
-    <thead>
-      <tr>
-        <th class="p-3 text-left bg-gray-50 font-semibold text-gray-600">
-          Name
-        </th>
-        <th class="p-3 text-left bg-gray-50 font-semibold text-gray-600">
-          Size
-        </th>
-        <th class="p-3 text-left bg-gray-50 font-semibold text-gray-600">
-          Last Modified
-        </th>
-      </tr>
-    </thead>
-    <tbody>
-      {% if path != "/" %}
-        <tr class="hover:bg-gray-50">
-          <td class="p-3 border-b border-gray-100">
-            <a
-              href="{{ utils::dir(path) }}"
-              class="text-blue-600 hover:underline block"
-            >
-              ../ (Parent Directory)
-            </a>
-          </td>
-          <td class="p-3 border-b border-gray-100">-</td>
-          <td class="p-3 border-b border-gray-100">-</td>
-        </tr>
-      {% endif %}
-      {% if directories.is_empty() && files.is_empty() %}
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse">
+      <thead>
         <tr>
-          <td colspan="3" class="p-8 text-center text-sm text-gray-400">
-            This directory is empty. Try to import?
-          </td>
+          <th
+            class="p-3 text-left bg-gray-50 font-semibold text-gray-600 text-nowrap"
+          >
+            Name
+          </th>
+          <th
+            class="p-3 text-left bg-gray-50 font-semibold text-gray-600 w-px text-nowrap"
+          >
+            Size
+          </th>
+          <th
+            class="p-3 text-left bg-gray-50 font-semibold text-gray-600 w-px text-nowrap"
+          >
+            Last Modified
+          </th>
         </tr>
-      {% endif %}
-      {% for file in directories %}
-        <tr class="hover:bg-gray-50">
-          <td class="p-3 border-b border-gray-100">
-            <a href="{{ file.path }}" class="text-blue-600 hover:underline block">
-              📁 {{ file.name }}
-            </a>
-          </td>
-          <td class="p-3 border-b border-gray-100">-</td>
-          <td class="p-3 border-b border-gray-100">-</td>
-        </tr>
-      {% endfor %}
-      {% for file in files %}
-        <tr class="hover:bg-gray-50">
-          <td class="p-3 border-b border-gray-100">
-            <a href="{{ file.path }}" class="text-zinc-800 hover:underline block">
-              📄 {{ file.name }}
-            </a>
-          </td>
-          <td class="p-3 border-b border-gray-100">
-            {{ Self::format_size(*file.size) }}
-          </td>
-          <td class="p-3 border-b border-gray-100 date">
-            {{ file.last_modified }}
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {% if path != "/" %}
+          <tr class="hover:bg-gray-50">
+            <td class="p-3 border-b border-gray-100 text-nowrap">
+              <a
+                href="{{ utils::dir(path) }}"
+                class="text-blue-600 hover:underline block"
+              >
+                ../ (Parent Directory)
+              </a>
+            </td>
+            <td class="p-3 border-b border-gray-100 text-nowrap">-</td>
+            <td class="p-3 border-b border-gray-100 text-nowrap">-</td>
+          </tr>
+        {% endif %}
+        {% if directories.is_empty() && files.is_empty() %}
+          <tr>
+            <td colspan="3" class="p-8 text-center text-sm text-gray-400">
+              This directory is empty. Try to import?
+            </td>
+          </tr>
+        {% endif %}
+        {% for file in directories %}
+          <tr class="hover:bg-gray-50">
+            <td class="p-3 border-b border-gray-100 text-nowrap">
+              <a
+                href="{{ file.path }}"
+                class="text-blue-600 hover:underline block"
+              >
+                📁 {{ file.name }}
+              </a>
+            </td>
+            <td class="p-3 border-b border-gray-100 text-nowrap">-</td>
+            <td class="p-3 border-b border-gray-100 text-nowrap">-</td>
+          </tr>
+        {% endfor %}
+        {% for file in files %}
+          <tr class="hover:bg-gray-50">
+            <td class="p-3 border-b border-gray-100 text-nowrap">
+              <a
+                href="{{ file.path }}"
+                class="text-zinc-800 hover:underline block"
+              >
+                📄 {{ file.name }}
+              </a>
+            </td>
+            <td class="p-3 border-b border-gray-100 text-nowrap">
+              {{ Self::format_size(*file.size) }}
+            </td>
+            <td class="p-3 border-b border-gray-100 text-nowrap date">
+              {{ file.last_modified }}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
+{% include "change-password.html" %}
 <script type="module">
   document.querySelectorAll('.date').forEach((x) => {
     x.textContent = new Temporal.ZonedDateTime(
       BigInt(x.textContent) * 1000000n,
       Temporal.Now.timeZoneId(),
-    ).toLocaleString()
+    )
+      .toString({
+        smallestUnit: 'second',
+        timeZoneName: 'never',
+        offset: 'never',
+      })
+      .replace('T', ' ')
   })
 
   importButton.addEventListener('click', async () => {
-    if (sessionStorage.getItem('importing') === 'true') {
-      alert('importing…')
-      return
-    }
-
-    importButton.disabled = true
-    sessionStorage.setItem('importing', 'true')
+    menu.hidePopover()
     try {
       const res = await fetch('/api/import', { method: 'POST' })
       if (res.ok) {
@@ -110,9 +158,6 @@
     } catch (e) {
       console.error(e)
       alert('import failed')
-    } finally {
-      sessionStorage.removeItem('importing')
-      importButton.disabled = false
     }
   })
 </script>
