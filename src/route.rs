@@ -140,7 +140,7 @@ impl FileBrowser {
             xs.push(unsafe {
                 Breadcrumb {
                     name: String::from_utf8_unchecked(path[start..i].to_vec()),
-                    path: String::from_utf8_unchecked(path[..i].to_vec()),
+                    path: utils::percent_encode(str::from_utf8_unchecked(&path[..i])),
                 }
             });
             i += 1;

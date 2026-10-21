@@ -1,6 +1,13 @@
-pub fn dir(path: &str) -> String {
+pub fn dir(path: &str) -> &str {
     let dir = &path[..path.rfind('/').unwrap()];
-    if dir.is_empty() { "/" } else { dir }.to_owned()
+    if dir.is_empty() { "/" } else { dir }
+}
+
+pub fn percent_encode(path: &str) -> String {
+    path.trim_start_matches('/')
+        .split('/')
+        .map(urlencoding::encode)
+        .fold(String::new(), |acc, x| acc + "/" + &x)
 }
 
 #[macro_export]

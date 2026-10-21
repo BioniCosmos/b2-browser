@@ -78,7 +78,7 @@
           <tr class="hover:bg-gray-50">
             <td class="p-3 border-b border-gray-100 text-nowrap">
               <a
-                href="{{ utils::dir(path) }}"
+                href="{{ utils::dir(path) | urlencode }}"
                 class="text-blue-600 hover:underline block"
               >
                 ../ (Parent Directory)

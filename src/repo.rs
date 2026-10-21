@@ -124,7 +124,7 @@ impl FileRepo {
                     } else {
                         "/".to_owned()
                     },
-                    path: utils::dir(self.children[0].path()),
+                    path: utils::dir(self.children[0].path()).to_owned(),
                     children: self.children,
                 })
             }

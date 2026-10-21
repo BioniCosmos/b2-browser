@@ -9,6 +9,7 @@ use crate::{
     api::{self, B2API, ListFileNamesResponse},
     arc,
     repo::{Dir, Entry, File, FileRepo, UserRepo},
+    utils,
 };
 
 arc!(FileSvc => FileSvcInner {
@@ -42,8 +43,14 @@ impl FileSvc {
                     (vec![], vec![]),
                     |(mut directories, mut files), entry| {
                         match entry {
-                            Entry::File(file) => files.push(file),
-                            Entry::Dir(dir) => directories.push(dir),
+                            Entry::File(file) => files.push(File {
+                                path: utils::percent_encode(&file.path),
+                                ..file
+                            }),
+                            Entry::Dir(dir) => directories.push(Dir {
+                                path: utils::percent_encode(&dir.path),
+                                ..dir
+                            }),
                         }
                         (directories, files)
                     },
@@ -60,13 +67,7 @@ impl FileSvc {
                 files: vec![],
             },
             Some(Entry::File(file)) => {
-                let path = file
-                    .path
-                    .trim_start_matches('/')
-                    .split('/')
-                    .map(urlencoding::encode)
-                    .fold(String::new(), |acc, x| acc + "/" + &x);
-                QueryResult::File(self.file_base_url.clone() + &path)
+                QueryResult::File(self.file_base_url.clone() + &utils::percent_encode(&file.path))
             }
             None => QueryResult::NotFound,
         })
