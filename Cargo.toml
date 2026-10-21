@@ -7,19 +7,22 @@ edition = "2024"
 anyhow = "1"
 argon2 = "0.6"
 askama = "0.16"
-axum = { version = "0.8", features = ["macros"] }
+axum = "0.8"
 base64 = "0.23"
 dotenvy = "0.15"
-jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs"] }
-reqwest = { version = "0.13", features = ["json", "query"] }
+jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 serde = { version = "1", features = ["derive"] }
 sqlx = { version = "0.9", features = ["postgres", "runtime-tokio"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.7", features = ["trace"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = "0.3"
 urlencoding = "2"
 
 [profile.release]
+opt-level = "s"
 strip = true
-lto = "thin"
+lto = true
+codegen-units = 1

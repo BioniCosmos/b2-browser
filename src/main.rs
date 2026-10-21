@@ -2,6 +2,7 @@ use std::{env::VarError::NotPresent, sync::Arc};
 
 use anyhow::{Context, Error, Result, bail};
 use dotenvy::Error::EnvVar;
+use rustls::crypto::ring;
 use sqlx::{PgPool, migrate};
 use tokio::net::TcpListener;
 use tracing::info;
@@ -22,6 +23,7 @@ mod utils;
 #[tokio::main]
 async fn main() -> Result<()> {
     log_init();
+    ring::default_provider().install_default().unwrap();
 
     macro_rules! read_env {
         ($key:expr) => {
@@ -70,18 +72,16 @@ async fn main() -> Result<()> {
 }
 
 fn log_init() {
-    use tracing_subscriber::EnvFilter;
+    use tracing::Level;
+    use tracing_subscriber::{filter::Targets, prelude::*};
 
-    let filter = if let Err(EnvVar(NotPresent)) = dotenvy::var(EnvFilter::DEFAULT_ENV) {
-        EnvFilter::new(format!(
-            "{}=trace,tower_http=debug,axum::rejection=trace",
-            env!("CARGO_CRATE_NAME")
-        ))
-    } else {
-        EnvFilter::from_default_env()
-    };
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .pretty()
+    tracing_subscriber::registry()
+        .with(
+            Targets::new()
+                .with_target(env!("CARGO_CRATE_NAME"), Level::TRACE)
+                .with_target("tower_http", Level::DEBUG)
+                .with_target("axum::rejection", Level::TRACE),
+        )
+        .with(tracing_subscriber::fmt::layer().pretty())
         .init();
 }
